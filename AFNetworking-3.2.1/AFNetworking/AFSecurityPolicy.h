@@ -59,7 +59,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, strong, nullable) NSSet <NSData *> *pinnedCertificates;
 
 /**
- 是否允许无效证书，默认 NO
+ 是否允许使用自建证书书，默认 NO
  Whether or not to trust servers with an invalid or expired SSL certificates. Defaults to `NO`.
  */
 @property (nonatomic, assign) BOOL allowInvalidCertificates;

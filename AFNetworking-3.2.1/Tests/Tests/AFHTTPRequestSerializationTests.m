@@ -35,15 +35,25 @@
 @end
 
 @interface AFHTTPBodyPart : NSObject
+/// 编码格式
 @property (nonatomic, assign) NSStringEncoding stringEncoding;
+/// 头部信息，通常是 Content-Disposition 和 Content-Type
 @property (nonatomic, strong) NSDictionary *headers;
+/// 数据边界分隔字符串
 @property (nonatomic, copy) NSString *boundary;
+/// 数据体，可以是二进制数据、输入流、文件地址等
 @property (nonatomic, strong) id body;
+/// 数据体的字节数
 @property (nonatomic, assign) NSUInteger bodyContentLength;
+/// 用数据体 body 构造该输入流，将在数据写入报文体时使用
 @property (nonatomic, strong) NSInputStream *inputStream;
+/// 数据体是否有首边界，即是否是第一个数据体
 @property (nonatomic, assign) BOOL hasInitialBoundary;
+/// 数据体是否有尾边界，即是否是最后一个数据体
 @property (nonatomic, assign) BOOL hasFinalBoundary;
+/// 是否有可读数据
 @property (readonly, nonatomic, assign, getter = hasBytesAvailable) BOOL bytesAvailable;
+/// 写入报文体中的数据的字节数，包含前边界字符串、头部信息、数据体、后边界字符串
 @property (readonly, nonatomic, assign) NSUInteger contentLength;
 
 - (NSInteger)read:(uint8_t *)buffer

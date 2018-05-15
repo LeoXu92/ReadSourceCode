@@ -306,6 +306,7 @@ forHTTPHeaderField:(NSString *)field;
 @protocol AFMultipartFormData
 
 /**
+ 添加文件数据
  Appends the HTTP header `Content-Disposition: file; filename=#{generated filename}; name=#{name}"` and `Content-Type: #{generated mimeType}`, followed by the encoded file data and the multipart form boundary.
 
  The filename and MIME type for this data in the form will be automatically generated, using the last path component of the `fileURL` and system associated MIME type for the `fileURL` extension, respectively.
@@ -321,6 +322,7 @@ forHTTPHeaderField:(NSString *)field;
                         error:(NSError * _Nullable __autoreleasing *)error;
 
 /**
+ 添加文件数据
  Appends the HTTP header `Content-Disposition: file; filename=#{filename}; name=#{name}"` and `Content-Type: #{mimeType}`, followed by the encoded file data and the multipart form boundary.
 
  @param fileURL The URL corresponding to the file whose content will be appended to the form. This parameter must not be `nil`.
@@ -338,6 +340,7 @@ forHTTPHeaderField:(NSString *)field;
                         error:(NSError * _Nullable __autoreleasing *)error;
 
 /**
+ 添加输入流数据
  Appends the HTTP header `Content-Disposition: file; filename=#{filename}; name=#{name}"` and `Content-Type: #{mimeType}`, followed by the data from the input stream and the multipart form boundary.
 
  @param inputStream The input stream to be appended to the form data
@@ -353,6 +356,7 @@ forHTTPHeaderField:(NSString *)field;
                          mimeType:(NSString *)mimeType;
 
 /**
+ 添加二进制数据
  Appends the HTTP header `Content-Disposition: file; filename=#{filename}; name=#{name}"` and `Content-Type: #{mimeType}`, followed by the encoded file data and the multipart form boundary.
 
  @param data The data to be encoded and appended to the form data.
@@ -366,6 +370,7 @@ forHTTPHeaderField:(NSString *)field;
                       mimeType:(NSString *)mimeType;
 
 /**
+ 添加二进制数据
  Appends the HTTP headers `Content-Disposition: form-data; name=#{name}"`, followed by the encoded data and the multipart form boundary.
 
  @param data The data to be encoded and appended to the form data.
@@ -377,6 +382,7 @@ forHTTPHeaderField:(NSString *)field;
 
 
 /**
+ 添加二进制数据,附加头部信息
  Appends HTTP headers, followed by the encoded data and the multipart form boundary.
 
  @param headers The HTTP headers to be appended to the form data.
@@ -386,6 +392,7 @@ forHTTPHeaderField:(NSString *)field;
                          body:(NSData *)body;
 
 /**
+ 设置数据包的大小以及读取数据的间隔时间
  Throttles request bandwidth by limiting the packet size and adding a delay for each chunk read from the upload stream.
 
  When uploading over a 3G or EDGE connection, requests may fail with "request body stream exhausted". Setting a maximum packet size and delay according to the recommended values (`kAFUploadStream3GSuggestedPacketSize` and `kAFUploadStream3GSuggestedDelay`) lowers the risk of the input stream exceeding its allocated bandwidth. Unfortunately, there is no definite way to distinguish between a 3G, EDGE, or LTE connection over `NSURLConnection`. As such, it is not recommended that you throttle bandwidth based solely on network reachability. Instead, you should consider checking for the "request body stream exhausted" in a failure block, and then retrying the request with throttled bandwidth.

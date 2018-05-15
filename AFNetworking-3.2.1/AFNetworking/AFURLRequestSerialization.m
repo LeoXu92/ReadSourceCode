@@ -870,6 +870,11 @@ NSTimeInterval const kAFUploadStream3GSuggestedDelay = 0.2;
     self.bodyStream.delay = delay;
 }
 
+/**
+ 数据报文信息封装完毕
+ 将自定义输入流赋给 NSMutableURLRequest 的 HTTPBodyStream 属性。
+ 并且，设置报文的头部信息 Content-Type 和 Content-Length 。
+ */
 - (NSMutableURLRequest *)requestByFinalizingMultipartFormData {
     if ([self.bodyStream isEmpty]) {
         return self.request;
@@ -923,14 +928,16 @@ NSTimeInterval const kAFUploadStream3GSuggestedDelay = 0.2;
     return self;
 }
 
+/// 设置初始边界和最终边界
 - (void)setInitialAndFinalBoundaries {
     if ([self.HTTPBodyParts count] > 0) {
         for (AFHTTPBodyPart *bodyPart in self.HTTPBodyParts) {
             bodyPart.hasInitialBoundary = NO;
             bodyPart.hasFinalBoundary = NO;
         }
-
+        // 将第一个元素设置为拥有首边界
         [[self.HTTPBodyParts firstObject] setHasInitialBoundary:YES];
+        // 将最后一个元素设置为拥有尾边界
         [[self.HTTPBodyParts lastObject] setHasFinalBoundary:YES];
     }
 }
@@ -944,28 +951,55 @@ NSTimeInterval const kAFUploadStream3GSuggestedDelay = 0.2;
 }
 
 #pragma mark - NSInputStream
-
+/*
+ --boundary+004563210AB32145
+ Content-Disposition: form-data; name="field1"
+ 
+ value1
+ --boundary+004563210AB32145
+ Content-Disposition: form-data; name="field2"
+ 
+ value2
+ --boundary+004563210AB32145
+ Content-Disposition: form-data; name="text"; filename="file.txt"
+ 
+ data1
+ --boundary+004563210AB32145
+ Content-Disposition: form-data; name="pic"; filename="icon.png"
+ 
+ data2
+ --boundary+004563210AB32145--
+ */
 - (NSInteger)read:(uint8_t *)buffer
         maxLength:(NSUInteger)length
 {
+    // 输入流关闭状态，无法读取
     if ([self streamStatus] == NSStreamStatusClosed) {
         return 0;
     }
 
     NSInteger totalNumberOfBytesRead = 0;
-
+    
+    // 一般来说都是直接读取length长度的数据，但是考虑到最后一次需要读出的数据长度(self.numberOfBytesInPacket)一般是小于length
+    // 所以此处使用了MIN(length, self.numberOfBytesInPacket)
     while ((NSUInteger)totalNumberOfBytesRead < MIN(length, self.numberOfBytesInPacket)) {
+        // 类似于我们构建request的逆向过程，我们对于HTTPBodyStream的读取也是分成一个一个AFHTTPBodyPart来的
+        // 如果当前AFHTTPBodyPart对象读取完成，那么就使用enumerator读取下一个AFHTTPBodyPart
         if (!self.currentHTTPBodyPart || ![self.currentHTTPBodyPart hasBytesAvailable]) {
             if (!(self.currentHTTPBodyPart = [self.HTTPBodyPartEnumerator nextObject])) {
                 break;
             }
         } else {
+            // 读取当前AFHTTPBodyPart对象
             NSUInteger maxLength = MIN(length, self.numberOfBytesInPacket) - (NSUInteger)totalNumberOfBytesRead;
+            // 使用的是AFHTTPBodyPart的read:maxLength:函数
             NSInteger numberOfBytesRead = [self.currentHTTPBodyPart read:&buffer[totalNumberOfBytesRead] maxLength:maxLength];
             if (numberOfBytesRead == -1) {
+                // 读取出错
                 self.streamError = self.currentHTTPBodyPart.inputStream.streamError;
                 break;
             } else {
+                // totalNumberOfBytesRead表示目前已经读取的字节数，可以作为读取后的数据放置于buffer的起始位置，如buffer[totalNumberOfBytesRead]
                 totalNumberOfBytesRead += numberOfBytesRead;
 
                 if (self.delay > 0.0f) {
@@ -1067,15 +1101,20 @@ NSTimeInterval const kAFUploadStream3GSuggestedDelay = 0.2;
 #pragma mark -
 
 typedef enum {
+    /// 数据体前边界值读取阶段
     AFEncapsulationBoundaryPhase = 1,
+    /// 数据体头部信息读取阶段
     AFHeaderPhase                = 2,
+    /// 数据体读取阶段
     AFBodyPhase                  = 3,
+    /// 数据体后边界值读取阶段
     AFFinalBoundaryPhase         = 4,
 } AFHTTPBodyPartReadPhase;
 
 @interface AFHTTPBodyPart () <NSCopying> {
     AFHTTPBodyPartReadPhase _phase;
     NSInputStream *_inputStream;
+    /// 用来记录每个数据读取阶段读取的数据的偏移量
     unsigned long long _phaseReadOffset;
 }
 
@@ -1173,17 +1212,17 @@ typedef enum {
         maxLength:(NSUInteger)length
 {
     NSInteger totalNumberOfBytesRead = 0;
-
+    // 使用分隔符将对应bodyPart数据封装起来
     if (_phase == AFEncapsulationBoundaryPhase) {
         NSData *encapsulationBoundaryData = [([self hasInitialBoundary] ? AFMultipartFormInitialBoundary(self.boundary) : AFMultipartFormEncapsulationBoundary(self.boundary)) dataUsingEncoding:self.stringEncoding];
         totalNumberOfBytesRead += [self readData:encapsulationBoundaryData intoBuffer:&buffer[totalNumberOfBytesRead] maxLength:(length - (NSUInteger)totalNumberOfBytesRead)];
     }
-
+    // 如果读取到的是bodyPart对应的header部分，那么使用stringForHeaders获取到对应header，并读取到buffer中
     if (_phase == AFHeaderPhase) {
         NSData *headersData = [[self stringForHeaders] dataUsingEncoding:self.stringEncoding];
         totalNumberOfBytesRead += [self readData:headersData intoBuffer:&buffer[totalNumberOfBytesRead] maxLength:(length - (NSUInteger)totalNumberOfBytesRead)];
     }
-
+    // 如果读取到的是bodyPart的内容主体，即inputStream，那么就直接使用inputStream写入数据到buffer中
     if (_phase == AFBodyPhase) {
         NSInteger numberOfBytesRead = 0;
 
@@ -1198,7 +1237,7 @@ typedef enum {
             }
         }
     }
-
+    // 如果是最后一个AFHTTPBodyPart对象，那么就需要添加在末尾”--分隔符--"
     if (_phase == AFFinalBoundaryPhase) {
         NSData *closingBoundaryData = ([self hasFinalBoundary] ? [AFMultipartFormFinalBoundary(self.boundary) dataUsingEncoding:self.stringEncoding] : [NSData data]);
         totalNumberOfBytesRead += [self readData:closingBoundaryData intoBuffer:&buffer[totalNumberOfBytesRead] maxLength:(length - (NSUInteger)totalNumberOfBytesRead)];
@@ -1207,15 +1246,18 @@ typedef enum {
     return totalNumberOfBytesRead;
 }
 
+// 上面那个函数中大量使用了read:intoBuffer:maxLength:函数
+// 这里我们将read:intoBuffer:maxLength:理解成一种将NSData类型的data转化为(uint8_t *)类型的buffer的手段，核心是使用了NSData的getBytes:range:函数
 - (NSInteger)readData:(NSData *)data
            intoBuffer:(uint8_t *)buffer
             maxLength:(NSUInteger)length
 {
+    // 求取range，需要考虑文件末尾比maxLength会小的情况
     NSRange range = NSMakeRange((NSUInteger)_phaseReadOffset, MIN([data length] - ((NSUInteger)_phaseReadOffset), length));
     [data getBytes:buffer range:range];
-
+    // 核心：NSData *---->uint8_t*
     _phaseReadOffset += range.length;
-
+    // 读取完成就更新_phase的状态
     if (((NSUInteger)_phaseReadOffset) >= [data length]) {
         [self transitionToNextPhase];
     }
@@ -1223,6 +1265,7 @@ typedef enum {
     return (NSInteger)range.length;
 }
 
+/// _phase状态转换
 - (BOOL)transitionToNextPhase {
     if (![[NSThread currentThread] isMainThread]) {
         dispatch_sync(dispatch_get_main_queue(), ^{

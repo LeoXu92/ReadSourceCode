@@ -1013,33 +1013,53 @@ didBecomeInvalidWithError:(NSError *)error
 
     [[NSNotificationCenter defaultCenter] postNotificationName:AFURLSessionDidInvalidateNotification object:session];
 }
-
+/*
+ 只要访问的是HTTPS的路径就会调用
+ 该方法的作用就是处理服务器返回的证书, 需要在该方法中告诉系统是否需要安装服务器返回的证书
+*/
 - (void)URLSession:(NSURLSession *)session
 didReceiveChallenge:(NSURLAuthenticationChallenge *)challenge
  completionHandler:(void (^)(NSURLSessionAuthChallengeDisposition disposition, NSURLCredential *credential))completionHandler
 {
+    /**
+     挑战认证的处理方式（枚举类型有三种）
+     NSURLSessionAuthChallengeUseCredential  采用指定的证书（证书可能为nil）
+     NSURLSessionAuthChallengePerformDefaultHandling  采用默认的处理方式 （似乎这个代理没有被实现，证书参数被忽视（即，没有证书））
+     NSURLSessionAuthChallengeCancelAuthenticationChallenge 取消挑战认证
+     NSURLSessionAuthChallengeRejectProtectionSpace 这一次的挑战被拒绝，下一次在进行尝试，忽略这一次的证书
+     */
     NSURLSessionAuthChallengeDisposition disposition = NSURLSessionAuthChallengePerformDefaultHandling;
     __block NSURLCredential *credential = nil;
-
+    
     if (self.sessionDidReceiveAuthenticationChallenge) {
+        // sessionDidReceiveAuthenticationChallenge自定义的应对服务器端挑战认证的方法
         disposition = self.sessionDidReceiveAuthenticationChallenge(session, challenge, &credential);
     } else {
+        // 此处服务器要求客户端的接收认证挑战方法是NSURLAuthenticationMethodServerTrust
+        // 也就是说服务器端需要客户端返回一个根据认证挑战的保护空间提供的信任（即challenge.protectionSpace.serverTrust）产生的挑战证书。
+        // 而这个证书就需要使用credentialForTrust:来创建一个NSURLCredential对象
         if ([challenge.protectionSpace.authenticationMethod isEqualToString:NSURLAuthenticationMethodServerTrust]) {
+            // 基于客户端的安全策略来决定是否信任该服务器，不信任的话，也就没必要响应挑战
             if ([self.securityPolicy evaluateServerTrust:challenge.protectionSpace.serverTrust forDomain:challenge.protectionSpace.host]) {
+                // 创建挑战证书（注：挑战方式为UseCredential和PerformDefaultHandling都需要新建挑战证书）
                 credential = [NSURLCredential credentialForTrust:challenge.protectionSpace.serverTrust];
                 if (credential) {
+                    // 证书挑战
                     disposition = NSURLSessionAuthChallengeUseCredential;
                 } else {
+                    // 默认挑战
                     disposition = NSURLSessionAuthChallengePerformDefaultHandling;
                 }
             } else {
+                // 取消挑战
                 disposition = NSURLSessionAuthChallengeCancelAuthenticationChallenge;
             }
         } else {
+            // 默认挑战方式
             disposition = NSURLSessionAuthChallengePerformDefaultHandling;
         }
     }
-
+    // 完成挑战
     if (completionHandler) {
         completionHandler(disposition, credential);
     }
