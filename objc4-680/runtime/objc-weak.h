@@ -67,6 +67,7 @@ typedef objc_object ** weak_referrer_t;
  */
 #define WEAK_INLINE_COUNT 4
 struct weak_entry_t {
+    // DisguisedPtr referent 是对泛型对象的指针做了一个封装
     DisguisedPtr<objc_object> referent;
     union {
         struct {
@@ -88,7 +89,9 @@ struct weak_entry_t {
  * and weak_entry_t structs as their values.
  */
 struct weak_table_t {
+    // 保存了所有指向指定对象的 weak 指针
     weak_entry_t *weak_entries;
+    // 存储空间
     size_t    num_entries;
     uintptr_t mask;
     uintptr_t max_hash_displacement;
