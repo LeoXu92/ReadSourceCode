@@ -8,4 +8,5 @@
 4. [CFRunLoop]((https://opensource.apple.com/tarballs/CF/))（1153.18）
 5. [objc4](https://opensource.apple.com/tarballs/objc4/)（680）
 6. [YYModel](https://github.com/ibireme/YYModel)（1.0.4）
+7. [YYCache](https://github.com/ibireme/YYCache)(1.0.4)
 7. [Aspects](https://github.com/steipete/Aspects/releases)（1.4.2）
