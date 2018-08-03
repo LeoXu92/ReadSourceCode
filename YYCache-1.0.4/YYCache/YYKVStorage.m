@@ -92,6 +92,11 @@ static UIApplication *_YYSharedApplication() {
 
 #pragma mark - db
 
+/*
+ db的一些操作可以看下 FMDB
+ */
+ 
+
 - (BOOL)_dbOpen {
     if (_db) return YES;
     
@@ -758,6 +763,7 @@ static UIApplication *_YYSharedApplication() {
         }
         return YES;
     } else {
+        // 混合存储的情况要删除存储的文件
         if (_type != YYKVStorageTypeSQLite) {
             NSString *filename = [self _dbGetFilenameWithKey:key];
             if (filename) {

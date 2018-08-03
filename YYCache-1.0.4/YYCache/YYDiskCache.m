@@ -47,6 +47,12 @@ static NSString *_YYNSStringMD5(NSString *string) {
             ];
 }
 
+/**
+ NSMapTable 和 NSMutableDictionary 非常相似，NSMapTable 使用起来更加自由，
+ 我们可以操纵 key，value 的 weak 和 strong 特性，在上边的代码中 _globalInstances 的中 value 被设置为
+ NSPointerFunctionsWeakMemory，也就是说，当 _globalInstances 添加了一个对象后，该对象的引用计数器不会加1，
+ 当该对象没有被任何其他对象引用的时候就会释放。
+ */
 /// weak reference for all instances
 static NSMapTable *_globalInstances;
 static dispatch_semaphore_t _globalInstancesLock;
